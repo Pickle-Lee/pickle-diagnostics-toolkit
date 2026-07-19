@@ -4,6 +4,8 @@ Windows system & network diagnostics with a shared color-coded verdict + HTML re
 Runs a battery of checks, judges them (GREEN / YELLOW / RED), tells you *only the problems*
 and how to fix them, and writes a scannable HTML report.
 
+![diagnostic.ps1 verdict in the terminal](assets/demo.gif)
+
 ![System health report - verdict and findings](assets/report.png)
 
 > **Platform: Windows only.** These scripts rely on Windows-specific facilities
