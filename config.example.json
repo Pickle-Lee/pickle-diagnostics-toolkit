@@ -1,0 +1,8 @@
+{
+  "_comment": "Copy to config.local.json (gitignored) and edit. Each service may set any of process/url/port. Omit the file entirely to run with no service checks.",
+  "services": [
+    { "name": "Ollama",    "process": "ollama", "url": "http://localhost:11434/api/tags", "port": 11434 },
+    { "name": "Local web", "url": "http://localhost:8080/health" },
+    { "name": "SSH",       "port": 22 }
+  ]
+}

@@ -1,0 +1,7 @@
+# Personal service-check config (never publish)
+config.local.json
+
+# Generated report artifacts, if written into the repo dir
+*.html
+system_diagnostic_*.txt
+Network_Cockpit_Logs/
