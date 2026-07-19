@@ -4,6 +4,8 @@ Windows system & network diagnostics with a shared color-coded verdict + HTML re
 Runs a battery of checks, judges them (GREEN / YELLOW / RED), tells you *only the problems*
 and how to fix them, and writes a scannable HTML report.
 
+![System health report - verdict and findings](assets/report.png)
+
 > **Platform: Windows only.** These scripts rely on Windows-specific facilities
 > (CIM/WMI, `Get-NetTCPConnection`, `Get-ScheduledTask`, `Get-WinEvent`, `netsh`, `powercfg`).
 > PowerShell 7+ recommended; the shared report engine is portable, but the collectors are not.
@@ -54,6 +56,10 @@ powershell -File .\Network_Cockpit_Danger.ps1 -DangerMode -WhatIf
 Each entry may set any of `process`, `url`, `port`. With no config file, service checks are skipped.
 
 ## Reports
+
+Every finding carries a collapsible raw-detail section - e.g. the pre-sorted "what's eating RAM" table:
+
+![Expanded raw detail - top processes by memory](assets/report-detail.png)
 
 - System  -> `%TEMP%\health_report_*.html`
 - Network -> `%USERPROFILE%\Desktop\Network_Cockpit_Logs\Run_*\NetworkReport.html`
