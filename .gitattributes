@@ -1,0 +1,4 @@
+# Keep shell shims and VHS tapes LF so they run inside the Linux VHS container
+# (CRLF would break the shebang / VHS parsing on checkout from a Windows clone)
+*.sh   text eol=lf
+*.tape text eol=lf
