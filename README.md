@@ -71,6 +71,7 @@ Every finding carries a collapsible raw-detail section - e.g. the pre-sorted "wh
 - Scripts are ASCII-only so they parse under Windows PowerShell 5.1 (no UTF-8 BOM needed).
 - `-DangerMode` resets Winsock/TCP-IP and briefly drops the connection - use `-WhatIf` first.
 - `-WifiAnalyze` needs Windows Location services enabled for `netsh wlan` to report signal/SSID.
+- The terminal gif is reproducible with VHS - see [`assets/vhs`](assets/vhs).
 
 ## Roadmap
 
