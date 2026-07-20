@@ -176,6 +176,41 @@ try {
     Add-Finding -Section "10 Most Recent TEMP Files" -Severity OK -Value "Query failed" -Detail "$_"
 }
 
+# 10. Network Adapters (status + link speed)  [adapted from NetworkToolkit]
+try {
+    $adapters = Get-NetAdapter -ErrorAction Stop | ForEach-Object {
+        $ip = (Get-NetIPAddress -InterfaceIndex $_.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress
+        [pscustomobject]@{ Name = $_.Name; Status = $_.Status; Speed = $_.LinkSpeed; IP = ($ip -join ', ') }
+    }
+    $up = @($adapters | Where-Object { $_.Status -eq 'Up' })
+    $detail = ($adapters | ForEach-Object { "{0,-26} {1,-10} {2,-12} {3}" -f $_.Name, $_.Status, $_.Speed, $_.IP }) -join "`n"
+    if ($up.Count -eq 0) {
+        Add-Finding -Section "Network Adapters" -Severity CRIT -Value "No adapter is Up" -Action "Check cabling / Wi-Fi / driver" -Detail $detail
+    } else {
+        $names = ($up | ForEach-Object { "$($_.Name) ($($_.Speed))" }) -join ", "
+        Add-Finding -Section "Network Adapters" -Severity OK -Value "$($up.Count) up - $names" -Detail $detail
+    }
+} catch {
+    Add-Finding -Section "Network Adapters" -Severity OK -Value "Query failed" -Detail "$_"
+}
+
+# 11. DNS Resolution (non-interactive health probe)  [adapted from NetworkToolkit]
+try {
+    $dnsTarget = 'github.com'
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $res = Resolve-DnsName -Name $dnsTarget -Type A -ErrorAction Stop
+    $sw.Stop()
+    $ms  = $sw.ElapsedMilliseconds
+    $ips = (@($res | Where-Object { $_.IPAddress } | ForEach-Object { $_.IPAddress })) -join ', '
+    if ($ms -gt 500) {
+        Add-Finding -Section "DNS Resolution" -Severity WARN -Value "$dnsTarget resolved in ${ms}ms (slow)" -Action "Check DNS server / network latency" -Detail "IPs: $ips"
+    } else {
+        Add-Finding -Section "DNS Resolution" -Severity OK -Value "$dnsTarget -> $ips (${ms}ms)"
+    }
+} catch {
+    Add-Finding -Section "DNS Resolution" -Severity WARN -Value "Failed to resolve $dnsTarget" -Action "DNS server unreachable or misconfigured" -Detail "$_"
+}
+
 # --- Render ---
 if ($Json) {
     Get-FindingsJson

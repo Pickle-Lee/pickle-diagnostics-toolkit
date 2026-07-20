@@ -80,6 +80,6 @@ Ideas to grow this from a single-box tool into a fleet-grade one - contributions
 - **Fleet mode** - `-ComputerName` remote execution over WinRM, run in parallel, aggregate into one host-matrix dashboard.
 - **PowerShell Gallery module** - `Install-Module`, with PSScriptAnalyzer + Pester tests in CI.
 - **Trend/history** - append runs to CSV/SQLite, detect drift, sparklines in the report.
-- **Deeper checks** - disk free + SMART, DNS timing, listening-port inventory, TLS cert expiry, NTP drift, NIC errors, pending updates, firewall state.
+- **Deeper checks** - disk free + SMART, listening-port inventory, TLS cert expiry, NTP drift, pending updates, firewall state. _(DNS resolution + NIC link health now shipped.)_
 - **Integrations** - alert-on-RED webhooks (Slack/Teams/Telegram), Nagios/PRTG/Prometheus-compatible output, scheduled-task installer.
 - **Cross-platform** - Linux/macOS collectors feeding the same portable engine.
