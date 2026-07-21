@@ -42,7 +42,7 @@ powershell -File .\Network_Cockpit_Danger.ps1 -DangerMode -WhatIf
 ```
 
 **Flags:** `-Json` (machine-readable output), `-Quiet` (don't auto-open the HTML),
-`-WhatIf` (network script: preview repairs instead of applying).
+`-Explain` (AI plain-English root-cause + fixes, see below), `-WhatIf` (network script: preview repairs instead of applying).
 
 **Exit codes** (for scheduled tasks / monitoring): `0` = GREEN, `1` = YELLOW, `2` = RED.
 
@@ -56,6 +56,20 @@ powershell -File .\Network_Cockpit_Danger.ps1 -DangerMode -WhatIf
 ```
 
 Each entry may set any of `process`, `url`, `port`. With no config file, service checks are skipped.
+
+## AI explanations (`-Explain`, model-agnostic)
+
+`-Explain` sends the findings to an LLM and appends a plain-English "what's actually wrong, ranked, and how to fix it" section to the report. It's **model-agnostic** — it speaks the OpenAI-compatible `/chat/completions` API, so point it at whatever you run (Ollama, OpenAI, Gemini's OpenAI endpoint, OpenRouter, LM Studio, vLLM, …) via `config.local.json`:
+
+```json
+"explain": {
+  "baseUrl":   "http://localhost:11434/v1",   // any OpenAI-compatible endpoint
+  "model":     "mistral:latest",
+  "apiKeyEnv": "PICKLEDIAG_LLM_KEY"            // NAME of an env var with the key; omit for keyless local
+}
+```
+
+The key is referenced by **env-var name** — no secret ever lands in a file. Off by default: without an `explain` block, `-Explain` just prints a hint and the normal verdict still runs.
 
 ## Reports
 

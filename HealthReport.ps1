@@ -9,9 +9,11 @@
 # lives here so both scripts get an identical look from one place.
 
 $script:Findings = [System.Collections.Generic.List[object]]::new()
+$script:Explanation = $null
 
 function Reset-Findings {
     $script:Findings = [System.Collections.Generic.List[object]]::new()
+    $script:Explanation = $null
 }
 
 function Add-Finding {
@@ -46,11 +48,58 @@ function Get-ExitCode {
 # Machine-readable output for piping into SIEM/monitoring/dashboards.
 function Get-FindingsJson {
     ([pscustomobject]@{
-        overall   = Get-OverallStatus
-        generated = (Get-Date).ToString('s')
-        host      = $env:COMPUTERNAME
-        findings  = @($script:Findings)
+        overall     = Get-OverallStatus
+        generated   = (Get-Date).ToString('s')
+        host        = $env:COMPUTERNAME
+        findings    = @($script:Findings)
+        explanation = $script:Explanation
     }) | ConvertTo-Json -Depth 6
+}
+
+# Compact findings digest used as the LLM prompt.
+function Get-FindingsDigest {
+    ($script:Findings | ForEach-Object {
+        $line = "[$($_.Severity)] $($_.Section): $($_.Value)"
+        if ($_.Action) { $line += " (suggested: $($_.Action))" }
+        $line
+    }) -join "`n"
+}
+
+# Model-agnostic AI explanation via ANY OpenAI-compatible chat endpoint
+# (Ollama, OpenAI, Gemini's openai endpoint, OpenRouter, LM Studio, vLLM, ...).
+# $Config: { baseUrl, model, apiKeyEnv } - apiKeyEnv is the NAME of an env var
+# holding the key (omit/empty for keyless local). Returns the text, or $null
+# if not configured. Never hardcodes an endpoint, model, or secret.
+function Invoke-Explain {
+    param([object]$Config)
+    if (-not $Config -or -not $Config.baseUrl -or -not $Config.model) { return $null }
+
+    $key = if ($Config.apiKeyEnv) { [Environment]::GetEnvironmentVariable($Config.apiKeyEnv) } else { $null }
+
+    $sys = 'You are a Windows systems-diagnostics assistant. Given health-check findings (severity/section/value), explain in plain English what is actually wrong, ranked by importance, with a concrete fix for each. Be concise: at most 6 short bullets. Ignore OK findings unless relevant.'
+    $body = @{
+        model       = $Config.model
+        temperature = 0.2
+        messages    = @(
+            @{ role = 'system'; content = $sys },
+            @{ role = 'user';   content = "Findings:`n$(Get-FindingsDigest)" }
+        )
+    }
+    if ($Config.max_tokens) { $body.max_tokens = [int]$Config.max_tokens }
+
+    $headers = @{ 'Content-Type' = 'application/json' }
+    if ($key) { $headers['Authorization'] = "Bearer $key" }
+    $url = $Config.baseUrl.TrimEnd('/') + '/chat/completions'
+
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $resp = Invoke-RestMethod -Uri $url -Method Post -Headers $headers -Body ($body | ConvertTo-Json -Depth 6) -TimeoutSec 120
+        $text = $resp.choices[0].message.content
+        if ($text) { $script:Explanation = ([string]$text).Trim() }
+    } catch {
+        $script:Explanation = "AI explanation unavailable: $($_.Exception.Message)"
+    }
+    return $script:Explanation
 }
 
 function ConvertTo-HtmlSafe {
@@ -120,6 +169,11 @@ function Write-HtmlReport {
         $cardsHtml += "<div class='val'>$val</div>$actHtml$detHtml</div>`n"
     }
 
+    $explHtml = ''
+    if ($script:Explanation) {
+        $explHtml = "<div class='card' style='border-left-color:#6e56cf'><div class='cardhead'><span class='sev' style='background:#6e56cf'>AI</span><span class='sec'>Explanation</span></div><div class='val' style='white-space:pre-wrap'>" + (ConvertTo-HtmlSafe $script:Explanation) + "</div></div>"
+    }
+
     $html = @"
 <!doctype html>
 <html><head><meta charset="utf-8"><title>$Title</title>
@@ -142,6 +196,7 @@ function Write-HtmlReport {
  <h1>$Title</h1>
  <div class="meta">Generated $generated</div>
  <div class="banner">HEALTH VERDICT: $status</div>
+ $explHtml
  $cardsHtml
 </div></body></html>
 "@

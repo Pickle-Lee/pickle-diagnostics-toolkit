@@ -4,5 +4,11 @@
     { "name": "Ollama",    "process": "ollama", "url": "http://localhost:11434/api/tags", "port": 11434 },
     { "name": "Local web", "url": "http://localhost:8080/health" },
     { "name": "SSH",       "port": 22 }
-  ]
+  ],
+  "_explain_comment": "Optional. Any OpenAI-compatible endpoint (Ollama/OpenAI/Gemini/OpenRouter/LM Studio). apiKeyEnv = NAME of an env var holding the key; omit for keyless local. Enable with -Explain.",
+  "explain": {
+    "baseUrl":   "http://localhost:11434/v1",
+    "model":     "llama3.2",
+    "apiKeyEnv": "PICKLEDIAG_LLM_KEY"
+  }
 }

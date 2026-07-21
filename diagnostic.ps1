@@ -10,6 +10,7 @@
 param(
     [switch]$Json,
     [switch]$Quiet,
+    [switch]$Explain,
     [string]$ConfigPath
 )
 
@@ -21,16 +22,18 @@ $txtPath  = "$env:TEMP\system_diagnostic_$ts.txt"
 $htmlPath = "$env:TEMP\health_report_$ts.html"
 
 # --- optional service-check config (personal config.local.json is gitignored) ---
+$cfg = $null
 $services = @()
 $cfgCandidates = @()
 if ($ConfigPath) { $cfgCandidates += $ConfigPath }
 $cfgCandidates += "$PSScriptRoot\config.local.json"
 foreach ($p in $cfgCandidates) {
     if ($p -and (Test-Path $p)) {
-        try { $cfg = Get-Content $p -Raw | ConvertFrom-Json; if ($cfg.services) { $services = $cfg.services } } catch { }
+        try { $cfg = Get-Content $p -Raw | ConvertFrom-Json } catch { }
         break
     }
 }
+if ($cfg -and $cfg.services) { $services = $cfg.services }
 
 # --- collect top processes first (used by the memory verdict) ---
 $topProcesses = Get-Process | Sort-Object -Property WorkingSet -Descending | Select-Object -First 10
@@ -211,11 +214,24 @@ try {
     Add-Finding -Section "DNS Resolution" -Severity WARN -Value "Failed to resolve $dnsTarget" -Action "DNS server unreachable or misconfigured" -Detail "$_"
 }
 
+# --- optional AI explanation (model-agnostic; needs an 'explain' block in config) ---
+if ($Explain) {
+    $null = Invoke-Explain -Config $cfg.explain
+    if (-not $script:Explanation -and -not ($cfg -and $cfg.explain)) {
+        Write-Host "`n(-Explain needs an 'explain' block in config.local.json - see config.example.json)" -ForegroundColor DarkGray
+    }
+}
+
 # --- Render ---
 if ($Json) {
     Get-FindingsJson
 } else {
     Write-TerminalVerdict
+    if ($script:Explanation) {
+        Write-Host "----- AI EXPLANATION -----" -ForegroundColor Magenta
+        Write-Host $script:Explanation -ForegroundColor Gray
+        Write-Host ""
+    }
     [void](Write-TextReport -Path $txtPath)
     [void](Write-HtmlReport -Title "System Health - $env:COMPUTERNAME" -Path $htmlPath)
     Write-Host "Full report: $htmlPath" -ForegroundColor Green
