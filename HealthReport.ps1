@@ -56,15 +56,6 @@ function Get-FindingsJson {
     }) | ConvertTo-Json -Depth 6
 }
 
-# Compact findings digest used as the LLM prompt.
-function Get-FindingsDigest {
-    ($script:Findings | ForEach-Object {
-        $line = "[$($_.Severity)] $($_.Section): $($_.Value)"
-        if ($_.Action) { $line += " (suggested: $($_.Action))" }
-        $line
-    }) -join "`n"
-}
-
 # Model-agnostic AI explanation via ANY OpenAI-compatible chat endpoint
 # (Ollama, OpenAI, Gemini's openai endpoint, OpenRouter, LM Studio, vLLM, ...).
 # $Config: { baseUrl, model, apiKeyEnv } - apiKeyEnv is the NAME of an env var
@@ -74,15 +65,28 @@ function Invoke-Explain {
     param([object]$Config)
     if (-not $Config -or -not $Config.baseUrl -or -not $Config.model) { return $null }
 
+    # Only send real problems (WARN/CRIT) so the model can't invent issues from
+    # healthy checks. A clean run short-circuits without an LLM call.
+    $problems = @($script:Findings | Where-Object { $_.Severity -ne 'OK' })
+    if ($problems.Count -eq 0) {
+        $script:Explanation = 'All checks passed - no problems to explain.'
+        return $script:Explanation
+    }
+    $digest = ($problems | ForEach-Object {
+        $line = "[$($_.Severity)] $($_.Section): $($_.Value)"
+        if ($_.Action) { $line += " (suggested: $($_.Action))" }
+        $line
+    }) -join "`n"
+
     $key = if ($Config.apiKeyEnv) { [Environment]::GetEnvironmentVariable($Config.apiKeyEnv) } else { $null }
 
-    $sys = 'You are a Windows systems-diagnostics assistant. Given health-check findings (severity/section/value), explain in plain English what is actually wrong, ranked by importance, with a concrete fix for each. Be concise: at most 6 short bullets. Ignore OK findings unless relevant.'
+    $sys = 'You are a Windows systems-diagnostics assistant. You are given ONLY the problem findings (WARN/CRIT) from a health check. For each finding write one short bullet: a brief plain-English cause, then tell the user exactly WHAT TO DO to fix it - a clear imperative action or command (e.g. "Close X", "Run Y", "Change Z to..."). Rank CRIT first, lead with the action. Strict rules: address ONLY the findings in the list; never invent, infer, or mention any problem not explicitly listed.'
     $body = @{
         model       = $Config.model
-        temperature = 0.2
+        temperature = 0.1
         messages    = @(
             @{ role = 'system'; content = $sys },
-            @{ role = 'user';   content = "Findings:`n$(Get-FindingsDigest)" }
+            @{ role = 'user';   content = "Problem findings:`n$digest" }
         )
     }
     if ($Config.max_tokens) { $body.max_tokens = [int]$Config.max_tokens }
